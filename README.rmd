@@ -1,0 +1,59 @@
+---
+title: "Bitcoin Mining Profitabiliy - Backtests and Predictions"
+author: "Jellen Vermeir"
+date: "13 september 2017"
+output: html_document
+---
+
+- Bitcoin mining - historical backtest example.
+- Bitcoin mining - profitabiliy predictions, based on Bitcoin price and Network hashrate trend regressions (todo).
+
+More info will be added soon..
+
+# Example - 5 Bitmain ASIC miners (July 2016 - Sep 2017)
+
+Assumptions:
+
+- Five antminer S9 ASIC Miners bought from the bitmain website at 2300 USD per miner in july 2016. 
+- Energy efficient mining in Iceland at 5 cents per kwh. 
+- Initial 500USD operational expense (shipping, setup costs, etc..).
+
+Relevant network data and mining results are illustrated below (more info to be added soon..)
+
+
+```{r message=FALSE}
+source("config/Config.R")
+
+BitcoinMiningBacktest(miner.price    = 2300,
+                      fixed.cost     = 500,
+                      miner.power    = 1247,
+                      miner.hashrate = 13, 
+                      nr.miners      = 5,
+                      cost.kwh       = 0.05,
+                      cost.var.daily = 0,
+                      backtest.start = "2016-07-01",
+                      backtest.end   = "2017-09-11")
+```
+
+# Predictions
+
+todo.. 
+
+## Donations
+
+If you find this software useful and/or you would like to see additional extensions, feel free to donate some crypto:
+
+ - BTC: 1QHtZLZ15Cmj4FPr5h5exDjYciBDhh7mzA
+ - LTC: LhKf6MQ7LY1k8YMaAq9z3APz8kVyFX3L2M
+ - ETH: 0x8E44D7C96896f2e0Cd5a6CC1A2e6a3716B85B479
+ - DASH: Xvicgp3ga3sczHtLqt3ekt7fQ62G9KaKNB
+
+Or preferably, donate some of my favorite coins :)
+
+ - GAME: GMxcsDAaHCBkLnN42Fs9Dy1fpDiLNxSKX1
+ - WAVES: 3PQ8KFdw2nWxQATsXQj8NJvSa1VhBcKePaf
+ 
+## Licensing
+
+Copyright 2017 Essential Data Science Consulting ltd. ([EssentialQuant.com](http://essentialquant.com "EssentialQuant") / jellenvermeir@essentialquant.com).
+This software is copyrighted under the MIT license: View added [LICENSE](./LICENSE) file.
