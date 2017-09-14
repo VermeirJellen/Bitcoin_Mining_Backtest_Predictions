@@ -1,8 +1,6 @@
 ---
-title: "Bitcoin Mining Profitabiliy - Backtests and Predictions"
-author: "Jellen Vermeir"
-date: "13 september 2017"
-output: html_document
+title: "Bitcoin Mining - Backtest and Predictions"
+output: rmarkdown::github_document
 ---
 
 - Bitcoin mining - historical backtest example.
@@ -10,7 +8,7 @@ output: html_document
 
 More info will be added soon..
 
-# Example - 5 Bitmain ASIC miners (July 2016 - Sep 2017)
+# Example - 5 Bitmain ASIC miners
 
 Assumptions:
 
