@@ -3,20 +3,20 @@ title: "Bitcoin Mining - Backtest and Predictions"
 output: rmarkdown::github_document
 ---
 
+This project consists of two sub-parts:
+
 - Bitcoin mining - historical backtest example.
-- Bitcoin mining - profitabiliy predictions, based on Bitcoin price and Network hashrate trend regressions (todo).
+- Bitcoin mining - Future profitability predictions (based on trend regressions).
 
-More info will be added soon..
-
-# Example - 5 Bitmain ASIC miners
+# Historical Backtest
 
 Assumptions:
 
-- Five antminer S9 ASIC Miners bought from the bitmain website at 2300 USD per miner in july 2016. 
+- Five antminer S9 ASIC Miners bought at 2300 USD per miner in july 2016. 
 - Energy efficient mining in Iceland at 5 cents per kwh. 
 - Initial 500USD operational expense (shipping, setup costs, etc..).
 
-Relevant network data and mining results are illustrated below (more info to be added soon..)
+Relevant network data and mining results are illustrated below.
 
 
 ```{r message=FALSE}
@@ -29,13 +29,92 @@ BitcoinMiningBacktest(miner.price    = 2300,
                       nr.miners      = 5,
                       cost.kwh       = 0.05,
                       cost.var.daily = 0,
-                      backtest.start = "2016-07-01",
-                      backtest.end   = "2017-09-11")
+                      backtest.start = "2016-07-01")
 ```
 
-# Predictions
+# Future Profitability Predictions
 
-todo.. 
+The ```BitcoinMiningBacktest``` expects future bitcoin price predictions, total network hashrate predictions and total network revenue predictions as input when it's run in ```forward.mode```.
+
+Assumptions:
+
+- Use exponential regression to predict the bitcoin price trend.
+- Use exponential regression to predict the total network revenue trend.
+- Use loess regression with degree 1 to predict the future hashrate trend.
+- Miners sell at around 1288 per unit.
+- Predict up to 500 days ahead.
+- Other assumptions are the same as before.
+
+The section below illustrates the results of the individual trend regressions followed by the mining profitability forward simulation (using the predicted trendvalues as input).
+
+### Bitcoin Price (Exponential Regression)
+
+```{r message=FALSE}
+date.start <- "2011-01-01"
+btc.price <- FetchBTCInfo(param           = "market-price",   
+                          data.identifier = "btc.close", 
+                          date.start      = date.start)
+
+btc.predictions <- SimpleLogTrendRegression(data = btc.price, 
+                                            data.identifier = "BTC-price", 
+                                            regression.type = "exponential",
+                                            data.frequency  = "daily",
+                                            nr.future       = 500, 
+                                            plot.2sd.log    = TRUE, 
+                                            plot.2sd.levels = FALSE)
+```
+
+### Total Network Mining Revenue (Exponential Regression)
+
+```{r message=FALSE}
+## Total network mining revenue (coinbase + transaction) - Exponential regression.
+mining.revenue.usd <- FetchBTCInfo(param           = "miners-revenue", 
+                                   data.identifier = "mining.revenue",
+                                   date.start      = date.start)
+
+revenue.predictions <- SimpleLogTrendRegression(data = mining.revenue.usd, 
+                                            data.identifier = "Mining.Revenue", 
+                                            regression.type = "exponential",
+                                            data.frequency  = "daily",
+                                            nr.future       = 500, 
+                                            plot.2sd.log    = TRUE, 
+                                            plot.2sd.levels = FALSE)
+```
+
+
+### Total Network Hashrate (Loess Regression)
+```{r message=FALSE}
+# Hashrate trend predictions (Loess, degree = 1)
+hashrate.total <- FetchBTCInfo(param           = "hash-rate", 
+                               data.identifier = "mining.hashrate",
+                               date.start      = date.start)
+
+hashrate.predictions <- SimpleLogTrendRegression(data = hashrate.total, 
+                                                 data.identifier = "Network Hashrate",
+                                                 regression.type = "loess",
+                                                 data.frequency  = "daily",
+                                                 loess.degree    = 1,
+                                                 nr.future       = 500, 
+                                                 plot.2sd.log    = TRUE, 
+                                                 plot.2sd.levels = FALSE)
+```
+
+
+### Mining Profitability Simulation
+
+```{r message=FALSE}
+BitcoinMiningBacktest(miner.price     = 1288,
+                      fixed.cost      = 500,
+                      miner.power     = 1247,
+                      miner.hashrate  = 13,
+                      nr.miners       = 5,
+                      cost.kwh        = 0.05,
+                      cost.var.daily  = 0,
+                      forward.mode    = TRUE,
+                      bitcoin.price.predictions   = btc.predictions$level.trend,
+                      network.revenue.predictions = revenue.predictions$level.trend,
+                      network.hashrate.predictions = hashrate.predictions$level.trend)
+```
 
 ## Donations
 

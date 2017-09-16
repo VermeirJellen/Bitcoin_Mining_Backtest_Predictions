@@ -15,4 +15,5 @@ packages <- lapply(packages, FUN = function(x) {
 Sys.setenv(TZ='UTC')
 
 source("functions/FetchBTCInfo.R")
+source("functions/SimpleLogTrendRegression.R")
 source("functions/BitcoinMiningBacktest.R")

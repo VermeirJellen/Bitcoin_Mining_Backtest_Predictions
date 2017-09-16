@@ -6,21 +6,33 @@ BitcoinMiningBacktest <- function(miner.price    = 2300,
                                   cost.kwh       = 0.05,
                                   cost.var.daily = 0,
                                   backtest.start = "2016-07-01",
-                                  backtest.end   = "2017-09-11"){
+                                  forward.mode                 = FALSE,
+                                  bitcoin.price.predictions    = NULL,
+                                  network.revenue.predictions  = NULL,
+                                  network.hashrate.predictions = NULL
+                                  ){
   
-  btc.price <- FetchBTCInfo(param           = "market-price",   
-                               data.identifier = "btc.close", 
-                               date.start      = backtest.start)
+  if (!forward.mode){
+    btc.price <- FetchBTCInfo(param           = "market-price",   
+                              data.identifier = "btc.close", 
+                              date.start      = backtest.start)
+  }
+  else {
+    btc.price <- bitcoin.price.predictions
+  }
+  
   date.range <- index(btc.price)
   
-  ######################################
-  #### FETCH REVENuE ###################
-  ######################################
-  # Total value of coinbase block rewards and transaction fees paid to miners.
-  mining.revenue.usd <- FetchBTCInfo(param           = "miners-revenue", 
-                                        data.identifier = "mining.revenue",
-                                        date.start      = backtest.start)
   
+  if (!forward.mode){
+    # Total value of coinbase block rewards and transaction fees paid to miners.
+    mining.revenue.usd <- FetchBTCInfo(param           = "miners-revenue", 
+                                       data.identifier = "mining.revenue",
+                                       date.start      = backtest.start)
+  }
+  else {
+    mining.revenue.usd <- network.revenue.predictions
+  }
   # Revenue expressed in btc
   mining.revenue.btc <- mining.revenue.usd / btc.price
   
@@ -45,13 +57,15 @@ BitcoinMiningBacktest <- function(miner.price    = 2300,
   variable.cost.usd <- cumulative.electricity.cost + cumulative.operational.cost
   total.cost.usd    <- initial.investment + variable.cost.usd
   
-  #############################################################
-  #### CALCULATE PERCENTAGE HASHrATE OWNED OVER TIME ##########
-  #############################################################
-  # The estimated number of tera hashes per second the Bitcoin network is performing.
-  hashrate.total <- FetchBTCInfo(param           = "hash-rate", 
-                                 data.identifier = "mining.hashrate",
-                                 date.start      = backtest.start)
+  if (!forward.mode){
+    # The estimated number of tera hashes per second the Bitcoin network is performing.
+    hashrate.total <- FetchBTCInfo(param           = "hash-rate", 
+                                   data.identifier = "mining.hashrate",
+                                   date.start      = backtest.start)
+  }
+  else {
+    hashrate.total <- network.hashrate.predictions
+  }
   
   hashrate.initial <- nr.miners * miner.hashrate
   
@@ -105,7 +119,7 @@ BitcoinMiningBacktest <- function(miner.price    = 2300,
   #### SELL BTC AT MARKET - ASSUME DAILY SELL  #####################
   ##################################################################
   plot(date.range, total.cost.usd, lty=1, type='l',
-       main = "Selling BTC at market price (daily)", col = "red",
+       main = "Mine and Sell (daily)", col = "red",
        xlab = "Time", ylab = "USD",
        ylim = c(0, max(total.cost.usd, total.revenue.usd.sum)))
   lines(date.range, total.revenue.usd.sum, col = "Green", lty=1, type='l', lwd=2)
@@ -116,11 +130,29 @@ BitcoinMiningBacktest <- function(miner.price    = 2300,
   total.revenue.btc.sum <- xts(matrix(cumsum(daily.revenue.btc), ncol=1),
                                order.by = date.range)
   
+  roi.nr.days <- head(which(total.revenue.usd.sum > total.cost.usd), 1)
+  roi.date    <- date.range[roi.nr.days]
+  print("Mine and sell strategy - statistics:")
+  if(length(roi.date) > 0){
+    print(paste("ROI reached on", roi.date, "after", roi.nr.days, "days."))
+  }
+  else {
+    print("ROI not reached during time interval..")
+    print("")
+  }
+  
+  end.date <- tail(date.range, 1)
+  end.cost <- round(as.numeric(tail(total.cost.usd, 1)), 2)
+  end.revenue <- round(as.numeric(tail(total.revenue.usd.sum, 1)), 2)
+  print(paste("Total Expenditures on ", end.date, ": ", end.cost, "USD", sep=""))
+  print(paste("Total Revenue on ", end.date, ": ", end.revenue, "USD", sep=""))
+  print(paste("Total Profit on ", end.date, ": ", end.revenue - end.cost, 
+              "USD after ", length(date.range), " days.", sep=""))
+  
   ####################################
   ### Buy and Hold - BTC ANALYSIS ####
   ####################################
-  
-  print("BUY AND HOLD - Buying versus Mining")
+
   initial.investment.usd    <- nr.miners * miner.price + fixed.cost
   initial.bitcoins          <- initial.investment.usd / as.numeric(head(btc.price, 1))
   # Use the varible cost to buy bitcoin at market
@@ -128,23 +160,53 @@ BitcoinMiningBacktest <- function(miner.price    = 2300,
   cumulative.daily.bitcoins <- cumsum(daily.bitcoins)
   buy.and.hold.btc          <- initial.bitcoins + cumulative.daily.bitcoins
   
+  
+  plot(date.range, buy.and.hold.btc, col = "red", lty=1, type='l',
+       xlab = "Time", ylab = "BTC",
+       main = "Buy and Hold VS Mine and Hold",
+       ylim = c(0, max(buy.and.hold.btc, total.revenue.btc.sum)))
+  lines(date.range, as.numeric(total.revenue.btc.sum), col = "Green", lty=1, type='l', lwd=2)
+  legend("topleft", legend = c("Buy and Hold", "Mine and Hold"), 
+         lty=c(1, 1), lwd=c(2,2), col=c("red", "green"))
+  
+  ############################
+  ### CALCULATE PROFIT ETC ###
+  ############################
+  buy.hold.end <- tail(buy.and.hold.btc, 1)
+  mining.end   <- tail(total.revenue.btc.sum, 1)
+  date.end     <- tail(date.range, 1)
+  price.end    <- tail(btc.price, 1)
+  cost.end     <- tail(total.cost.usd, 1)
+  
+  buy.hold.usd    <- buy.hold.end * price.end
+    
+  mining.end.usd <- mining.end * price.end 
+  
+  print("Buy and Hold versus Mine and Hold")
+  print("For fair comparison, buy and hold strategy is performed as follows:")
   print(paste("buy ", round(initial.bitcoins, 4), "BTC using ", 
               initial.investment.usd, "USD on ", backtest.start, sep=""))
   print("Use daily Variable mining Costs to buy more BTC at market price")
   
-  plot(date.range, buy.and.hold.btc, col = "red", lty=1, type='l',
-       xlab = "Time", ylab = "BTC",
-       main = "Buy and Hodl - Buying versus Mining",
-       ylim = c(0, max(buy.and.hold.btc, total.revenue.btc.sum)))
-  lines(date.range, as.numeric(total.revenue.btc.sum), col = "Green", lty=1, type='l', lwd=2)
-  legend("topleft", legend = c("BuyHodl", "Mining"), 
-         lty=c(1, 1), lwd=c(2,2), col=c("red", "green"))
+  print("")
+  print(paste("Total Expenditures over time interval: ", 
+              round(as.numeric(cost.end), 2), "USD", sep=""))
+  print("")
+  print("Buy and Hold:")
+  print(paste("Selling", round(as.numeric(buy.hold.end), 4), "coins at a price of", 
+              round(as.numeric(price.end), 2), "USD on", date.end, "for", 
+              round(as.numeric(buy.hold.usd),2), "USD"))
+  print(paste("Total Profit:", round(as.numeric(buy.hold.usd - cost.end), 2), "USD"))
   
-  buy.hold.end <- tail(buy.and.hold.btc, 1)
-  mining.end   <- tail(total.revenue.btc.sum, 1)
-  btc.profit   <- mining.end - buy.hold.end
-  print(paste("BTC profit: ", round(mining.end, 4), " - ", round(buy.hold.end, 4), 
-              " = ", round(btc.profit, 4), sep=""))
-  print(paste("USD mining profit in addition to price appreciation: ", 
+  print("")
+  print("Mine and Hold:")
+  print(paste("Selling", round(as.numeric(mining.end), 4), "coins at a price of", 
+              round(as.numeric(price.end), 2), "USD on", date.end, "for", 
+              round(as.numeric(mining.end.usd),2), "USD"))
+  print(paste("Total Profit:", round(as.numeric(mining.end.usd - cost.end), 2), "USD"))
+  
+  print("")
+  btc.profit <- mining.end - buy.hold.end
+  print(paste("Mine and hold versus Buy and hold - Additional profit: ", 
               round(as.numeric(btc.profit * tail(btc.price, 1)), 2), "USD", sep=""))
 }
